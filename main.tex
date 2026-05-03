@@ -1,0 +1,169 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Encoding and language ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[provide=*,spanish]{babel}
+
+% --- Math ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% --- Figures ---
+\usepackage{graphicx}
+\usepackage{float}
+\graphicspath{{images/}}
+
+% Gracefully show a placeholder when a figure file is missing
+\newcommand{\safeincludegraphics}[1]{%
+    \IfFileExists{images/#1}{%
+        \includegraphics[width=\textwidth]{#1}%
+    }{%
+        \begin{center}%
+        \fbox{\parbox{0.75\textwidth}{\centering\small\itshape%
+            Figura \texttt{#1} pendiente --- ejecutar \texttt{main.ipynb} para generarla.}}%
+        \end{center}%
+    }%
+}
+
+% --- Tables ---
+\usepackage{booktabs}
+
+% --- Links ---
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
+
+% --- Page layout ---
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+% --- Header/footer ---
+\usepackage{fancyhdr}
+\setlength{\headheight}{14.5pt}
+\addtolength{\topmargin}{-2.5pt}
+\pagestyle{fancy}
+
+\fancyhf{}
+\rhead{Parcial 2}
+\lhead{Thomas Gonzalez}
+\cfoot{\thepage}
+
+% ============================================================
+\begin{document}
+
+\begin{center}
+    {\LARGE\bfseries Parcial 2}\\[0.8em]
+    {\large Thomas Gonzalez}\\[0.3em]
+    {\normalsize \today}\\[0.4em]
+    {\small \href{https://github.com/thomatrixting/Solar_estructure_modeling}{github del proyecto}}
+\end{center}
+
+\vspace{1em}
+\hrule
+\vspace{1.5em}
+
+% ============================================================
+\section{Contexto de los datos utilizados}
+
+Los datos utilizados provienen del Modelo S de Jørgen Christensen-Dalsgaard et al.\ \cite{ChristensenDalsgaard1996}, disponibles públicamente en \url{https://users-phys.au.dk/jcd/solar_models/} bajo la opción ``Limited set of variables for model S''. El conjunto de datos contiene un perfil radial del Sol compuesto por 2482 capas, con las siguientes variables: radio normalizado $r/R_\odot$, velocidad del sonido $c$, densidad $\rho$, presión $P$, exponente adiabático $\Gamma_1$ y temperatura $T$. Todas las constantes físicas empleadas en los cálculos (constante gravitacional $G$, constante de Boltzmann $k_B$, radio y masa solares $R_\odot$ y $M_\odot$, masa del protón $m_p$, constante de Stefan-Boltzmann $\sigma$ y velocidad de la luz $c$) se obtuvieron de la librería \texttt{astropy}, la cual implementa los valores recomendados por CODATA 2014 \cite{mohrCODATARecommendedValues2016}.
+
+% ============================================================
+\section{Teoría}
+
+\subsection{Distribución de masa y energía potencial gravitacional}
+
+La \textbf{ecuación de continuidad de la masa} establece que la masa encerrada en una cáscara esférica de radio $r$ y grosor $dr$ es:
+\begin{equation}
+    dM(r) = 4\pi r^2 \rho(r)\, dr,
+\end{equation}
+de modo que la masa total encerrada hasta el radio $r$ se obtiene integrando desde el centro:
+\begin{equation}
+    M(r) = \int_0^r 4\pi r'^2 \rho(r')\, dr'.
+\end{equation}
+En la práctica, esta integral se discretiza sumando los incrementos $\Delta M_i = 4\pi r_i^2\,\rho_i\,\Delta r_i$, donde $\Delta r_i$ es la diferencia de radio entre capas consecutivas.
+
+La \textbf{energía potencial gravitacional} de una configuración esférica autogravitante se calcula a partir del trabajo necesario para ensamblar la estrella capa por capa:
+\begin{equation}
+    d\Omega = -\frac{G\, M(r)\, dM(r)}{r},
+\end{equation}
+y la energía potencial total es:
+\begin{equation}
+    \Omega = -\int_0^R \frac{G\, M(r)}{r}\, dM(r).
+\end{equation}
+La relación entre la energía potencial y la masa y radio totales define el parámetro adimensional $q$:
+\begin{equation}
+    -\Omega_\star = q\,\frac{G M_\star^2}{R_\star}, \qquad q > 0,
+\end{equation}
+que se despeja directamente como:
+\begin{equation}
+    q = \frac{|\Omega_\odot|\, R_\odot}{G\, M_\odot^2}.
+\end{equation}
+
+\subsection{Fracción de presión de radiación --- Proposición 7}
+\label{sec:teoria-2b}
+
+Para un plasma completamente ionizado el \textbf{peso molecular medio} depende de las fracciones de masa del hidrógeno $X$, el helio $Y$ y los metales $Z = 1-X-Y$:
+\begin{equation}
+    \mu = \frac{1}{2X + \dfrac{3}{4}Y + \dfrac{1}{2}Z}.
+\end{equation}
+
+La \textbf{proposición 7} del modelo estándar de Eddington establece la cota superior de la fracción de presión de gas $\beta^*$ en el centro de una estrella en equilibrio hidrostático. Definiendo la constante de radiación $a = 4\sigma/c$, la constante adimensional $B$ es:
+\begin{equation}
+    B = \frac{\pi\, a\, G^3 M_\odot^2\, m_h^4}{18\, k_B^4},
+\end{equation}
+y la fracción de presión de radiación central máxima satisface:
+\begin{equation}
+    \left(\frac{M_\star}{M_\odot}\right)^{\!2} B\,\mu^4 = \frac{1 - \beta^*}{\beta^{*4}}.
+\end{equation}
+El cambio de variable $x = 1 - \beta^*$ transforma la ecuación en:
+\begin{equation}
+    \frac{x}{(1-x)^4} = K, \qquad K = \left(\frac{M_\star}{M_\odot}\right)^{\!2} B\,\mu^4,
+\end{equation}
+función que es monótona creciente en $x\in(0,1)$ y tiene por tanto solución única para cada $K>0$, la cual se resuelve numéricamente con el método de Brent (\texttt{scipy.optimize.brentq}).
+
+El corte $1-\beta^*=0{,}5$ corresponde al caso en que la presión de radiación iguala a la del gas ($P_\mathrm{rad} = P_\mathrm{gas}$). Por encima de este límite, la configuración se aproxima al límite de Eddington: la proposición 7 asume que la presión de radiación es despreciable frente a la del gas para derivar el equilibrio hidrostático, supuesto que se rompe al llegar a $\beta^*=0{,}5$. Adicionalmente, con $1-\beta_c > 0{,}5$ en el centro, la fracción de presión de radiación aumenta hacia las capas externas, lo que puede inducir una pérdida violenta de masa o una inversión de densidad que destruye el equilibrio hidrostático de la estrella \cite{grassitelliSubsonicStructureOptically2018}; de ahí que $\beta^*=0{,}5$ actúe como cota máxima físicamente permitida en el interior estelar.
+
+% ============================================================
+\section{Actividad 2A: Distribución de masa y energía potencial gravitacional}
+
+Se cargaron los datos del Modelo S \cite{ChristensenDalsgaard1996} con 2482 capas radiales, invirtiendo el orden para situar el centro del Sol en el índice cero. Las diferencias de radio entre capas consecutivas se obtuvieron con \texttt{pandas.DataFrame.diff()}, y la masa encerrada $M(r)$ se calculó como la suma acumulada de $\Delta M_i = 4\pi r_i^2\,\rho_i\,\Delta r_i$ (ecuaciones 1 y 2), usando la densidad en unidades SI obtenida tras la conversión de las unidades originales del modelo (CGS).
+
+La figura \ref{fig:masa} muestra la masa encerrada $M(r)$ en función del radio relativo $r/R_\odot$. Se observa que aproximadamente el $90\%$ de la masa solar se concentra por debajo de $r/R_\odot \approx 0{,}3$, lo que refleja el perfil de densidad fuertemente centralizado del Modelo S.
+
+\begin{figure}[H]
+    \centering
+    \safeincludegraphics{mass_distribution.png}
+    \caption{Masa encerrada $M(r)$ en función del radio relativo $r/R_\odot$ calculada a partir del Modelo S de Christensen-Dalsgaard et al.\ \cite{ChristensenDalsgaard1996}. Las constantes físicas empleadas provienen de CODATA 2014 vía \texttt{astropy} \cite{mohrCODATARecommendedValues2016}.}
+    \label{fig:masa}
+\end{figure}
+
+La energía potencial gravitacional se calculó mediante la suma acumulada de $d\Omega_i = -G\,M(r_i)\,\Delta M_i / r_i$ (ecuaciones 3 y 4). El valor absoluto obtenido es:
+\begin{equation*}
+    |\Omega_\odot| = 6{,}12 \times 10^{41}\ \mathrm{J}.
+\end{equation*}
+Aplicando la ecuación (6), el parámetro $q$ resulta:
+\begin{equation*}
+    q = 1{,}617.
+\end{equation*}
+Este resultado es coherente con el valor esperado para una estrella politrópica de índice $n=3$ ($q\approx 1{,}5$); la desviación refleja que el perfil de densidad real del Sol no es exactamente politrópico.
+
+% ============================================================
+\section{Actividad 2B: Cota superior de la fracción de presión de radiación}
+
+Para la composición solar estándar ($X=0{,}71$, $Y=0{,}277$, $Z=0{,}013$) la ecuación (7) da $\mu_\odot = 0{,}612$. Dado que $\mu$ puede variar entre $0{,}5$ (hidrógeno puro totalmente ionizado) y $2{,}0$ (metales pesados totalmente ionizados), se exploraron siete valores: $\mu \in \{0{,}5;\, 0{,}612;\, 0{,}7;\, 1{,}0;\, 1{,}2;\, 1{,}5;\, 2{,}0\}$.
+
+La constante $B$ se evaluó numéricamente usando los valores CODATA 2014 de \texttt{astropy} \cite{mohrCODATARecommendedValues2016}, obteniéndose $B \approx 3{,}35\times10^{-2}$ (adimensional). Para cada par $(M_\star/M_\odot,\,\mu)$ se resolvió la ecuación (10) con \texttt{scipy.optimize.brentq}, barriendo 500 valores de masa en el rango $[0{,}1,\;60]\,M_\odot$.
+
+La figura \ref{fig:beta} muestra la fracción de presión de radiación $1-\beta^*$ en función de la masa estelar para cada valor de $\mu$. Se observa que la fracción de presión de radiación aumenta con la masa y con el peso molecular medio: composiciones más pesadas (mayor $\mu$, mayor metalicidad) producen estrellas intrínsecamente más densas, lo que permite sostener una fracción de presión de radiación más elevada. La línea discontinua en $1-\beta^*=0{,}5$ marca la cota máxima: por encima de ésta la presión de radiación domina sobre la del gas y la estrella no puede mantener el equilibrio hidrostático (véase la discusión en la sección~\ref{sec:teoria-2b}). Asimismo, se verifica que para masas superiores a $\approx 60\,M_\odot$ todas las configuraciones superan dicha cota independientemente del valor de $\mu$.
+
+\begin{figure}[H]
+    \centering
+    \safeincludegraphics{radiation_pressure.png}
+    \caption{Cota superior de la fracción de presión de radiación central $1-\beta^*$ en función de $M_\star/M_\odot$ para distintos valores del peso molecular medio $\mu$ (plasma totalmente ionizado). La línea discontinua indica el límite $\beta^*=0{,}5$ donde la presión de radiación iguala a la del gas, definiendo la cota máxima físicamente permitida en el interior estelar.}
+    \label{fig:beta}
+\end{figure}
+
+% ============================================================
+\bibliographystyle{plain}
+\bibliography{biblography}
+
+\end{document}
