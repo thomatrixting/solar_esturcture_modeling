@@ -25,7 +25,11 @@ def plot_data(
     grid_alpha=0.2,
     legend_loc='best',
     show_legend = True,
-    negative_values = False
+    negative_values = False,
+    mirror_axes = False,
+    line_plot = False,
+    log_x = False,
+    log_y = False
 ):
     """
     Pure plotting function with full style control.
@@ -79,7 +83,11 @@ def plot_data(
         labelsize=tick_fontsize,
         direction='in',
         length=5,
-        width=1.1
+        width=1.1,
+        top=mirror_axes,
+        right=mirror_axes,
+        labeltop=mirror_axes,
+        labelright=mirror_axes
     )
 
     for spine in ax.spines.values():
@@ -87,24 +95,32 @@ def plot_data(
 
     ax.grid(alpha=grid_alpha, linestyle=':', linewidth=0.8)
 
+    if log_x:
+        ax.set_xscale('log')
+    if log_y:
+        ax.set_yscale('log')
+
     # ---------- plot data ----------
     for df, lab, col in zip(dfs, labels, colors):
         x = df[x_col].to_numpy(dtype=float)
         y = df[y_col].to_numpy(dtype=float)
         cur_yerr = parse_err_for_df(df, yerr)
 
-        ax.errorbar(
-            x, y,
-            yerr=cur_yerr,
-            fmt='o',
-            capsize=3,
-            color=col,
-            alpha=0.85,
-            markersize=5,
-            elinewidth=1.1,
-            capthick=1.1,
-            label=lab
-        )
+        if line_plot:
+            ax.plot(x, y, color=col, alpha=0.85, linewidth=1.8, label=lab)
+        else:
+            ax.errorbar(
+                x, y,
+                yerr=cur_yerr,
+                fmt='o',
+                capsize=3,
+                color=col,
+                alpha=0.85,
+                markersize=5,
+                elinewidth=1.1,
+                capthick=1.1,
+                label=lab
+            )
 
     if show_legend:
         # ---------- legend ----------
